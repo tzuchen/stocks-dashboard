@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <title>股票＋選擇權看板</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- 每 20 秒自動重整 -->
+  <meta http-equiv="refresh" content="20">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans CJK TC", "PingFang TC", sans-serif; margin: 18px; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+    th, td { border-bottom: 1px solid #eee; padding: 8px 10px; text-align: left; }
+    th { background: #fafafa; }
+    .up { color: #0b8d3c; font-weight: 600; }
+    .down { color: #c33333; font-weight: 600; }
+    .muted { color: #666; }
+    .wrap { max-width: 1100px; margin: 0 auto; }
+    .row { display:flex; gap:18px; flex-wrap:wrap; }
+    .card { border: 1px solid #eee; border-radius: 10px; padding: 12px 14px; background: #fff; flex:1; min-width: 320px; }
+    .title { font-size: 18px; font-weight: 700; }
+    .small { font-size: 12px; }
+    input[type=text]{ padding:6px 8px; width: 280px; }
+    button{ padding:6px 10px; }
+  
+/* === mobile enhancements === */
+.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+@media (max-width: 768px){
+  body{margin:12px;}
+  .container, .row{padding:0;}
+  table{font-size:14px;}
+  th,td{padding:6px 8px;}
+  input[type="text"], input[type="search"], select, button{width:100%; box-sizing:border-box; margin:6px 0; padding:10px 12px;}
+  .controls{display:grid; grid-template-columns:1fr; gap:8px;}
+  .muted.small{font-size:12px;}
+  .card{padding:10px;}
+}
+/* Optional: prevent long tickers/labels from breaking layout */
+td, th{word-break:keep-all; white-space:nowrap;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="row">
+    <div class="card">
+      <div class="title">股票價格</div>
+      <form method="get" class="small" style="margin:8px 0;" class="controls">
+        追蹤清單（逗號分隔）：
+        <input type="text" name="symbols" value="{{ ','.join(symbols) }}">
+        <input type="hidden" name="opt" value="{{ opt.symbol if opt else '' }}">
+        <input type="hidden" name="expiry" value="{{ expiry }}">
+        <button type="submit">套用</button>
+      </form>
+      <div class="scroll-x">
+<table>
+        <thead>
+          <tr><th>Symbol</th><th>Price</th><th>Δ</th><th>%</th><th>Time</th></tr>
+        </thead>
+        <tbody>
+        {% for q in quotes %}
+          {% set cls = 'up' if (q.pct or 0) >= 0 else 'down' %}
+          <tr>
+            <td><strong>{{ q.symbol }}</strong></td>
+            <td>{{ '—' if q.price is none else '%.2f' % q.price }} {{ q.currency }}</td>
+            <td class="{{ cls }}">{{ '' if q.change is none else ('%+.2f' % q.change) }}</td>
+            <td class="{{ cls }}">{{ '' if q.pct is none else ('%+.2f%%' % q.pct) }}</td>
+            <td class="muted small">{{ q.time }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+</div>
+      <div class="small muted">更新：{{ now }}</div>
+    </div>
+
+    <div class="card">
+      <div class="title">選擇權（鄰近 ATM）</div>
+      <form method="get" class="small" style="margin:8px 0;">
+        標的：
+        <input type="text" name="opt" value="{{ opt.symbol if opt else '' }}" placeholder="例如 TSLA">
+        到期日（可留空）：
+        <input type="text" name="expiry" value="{{ expiry }}" placeholder="YYYY-MM-DD">
+        <!-- 沿用上方 symbols -->
+        <input type="hidden" name="symbols" value="{{ ','.join(symbols) }}">
+        <button type="submit">查看</button>
+      </form>
+
+      {% if opt %}
+        {% if opt.expiry %}
+          <div class="small muted">Spot {{ '%.2f' % opt.spot }}｜Expiry {{ opt.expiry }}｜更新 {{ opt.time }}</div>
+          <div class="row">
+            <div style="flex:1; min-width:300px;">
+              <div class="small" style="font-weight:700; margin-top:6px;">Calls</div>
+              <div class="scroll-x">
+<table>
+                <thead><tr><th>Strike</th><th>Bid</th><th>Ask</th><th>Mid</th><th>OI</th><th>Vol</th></tr></thead>
+                <tbody>
+                {% for r in opt.calls %}
+                  <tr>
+                    <td>{{ '%.2f' % r.strike }}</td>
+                    <td>{{ '' if r.bid is none else '%.2f' % r.bid }}</td>
+                    <td>{{ '' if r.ask is none else '%.2f' % r.ask }}</td>
+                    <td>{{ '' if r.mid is none else '%.2f' % r.mid }}</td>
+                    <td>{{ r.openInterest }}</td>
+                    <td>{{ r.volume }}</td>
+                  </tr>
+                {% endfor %}
+                </tbody>
+              </table>
+</div>
+            </div>
+            <div style="flex:1; min-width:300px;">
+              <div class="small" style="font-weight:700; margin-top:6px;">Puts</div>
+              <div class="scroll-x">
+<table>
+                <thead><tr><th>Strike</th><th>Bid</th><th>Ask</th><th>Mid</th><th>OI</th><th>Vol</th></tr></thead>
+                <tbody>
+                {% for r in opt.puts %}
+                  <tr>
+                    <td>{{ '%.2f' % r.strike }}</td>
+                    <td>{{ '' if r.bid is none else '%.2f' % r.bid }}</td>
+                    <td>{{ '' if r.ask is none else '%.2f' % r.ask }}</td>
+                    <td>{{ '' if r.mid is none else '%.2f' % r.mid }}</td>
+                    <td>{{ r.openInterest }}</td>
+                    <td>{{ r.volume }}</td>
+                  </tr>
+                {% endfor %}
+                </tbody>
+              </table>
+</div>
+            </div>
+          </div>
+        {% else %}
+          <div class="muted small">查不到到期日或無選擇權資料。</div>
+        {% endif %}
+      {% else %}
+        <div class="muted small">在上方輸入標的（例如 TSLA）後送出即可顯示。</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+</body>
+</html>
+
