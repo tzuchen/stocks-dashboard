@@ -92,14 +92,20 @@
               <div class="small" style="font-weight:700; margin-top:6px;">Calls</div>
               <div class="scroll-x">
               <table>
-                <thead><tr><th>Strike</th><th>Bid</th><th>Ask</th><th>Mid</th><th>OI</th><th>Vol</th></tr></thead>
+                <thead><tr><th>Strike</th><th>Bid</th><th>Ask</th><th>Last</th><th>Mid</th><th>OI</th><th>Vol</th></tr></thead>
                 <tbody>
                 {% for r in opt.calls %}
                   <tr>
                     <td>{{ '%.2f' % r.strike }}</td>
                     <td>{{ '' if r.bid is none else '%.2f' % r.bid }}</td>
                     <td>{{ '' if r.ask is none else '%.2f' % r.ask }}</td>
-                    <td>{{ '' if r.mid is none else '%.2f' % r.mid }}</td>
+                    <td>{{ '' if r.last is none else '%.2f' % r.last }}</td>
+                    <td>
+                      {% if r.mid is none %}
+                      {% else %}
+                        {{ '%.2f' % r.mid }}{% if r.mid_from == 'last' %}*{% endif %}
+                      {% endif %}
+                    </td>
                     <td>{{ r.openInterest }}</td>
                     <td>{{ r.volume }}</td>
                   </tr>
@@ -112,14 +118,20 @@
               <div class="small" style="font-weight:700; margin-top:6px;">Puts</div>
               <div class="scroll-x">
               <table>
-                <thead><tr><th>Strike</th><th>Bid</th><th>Ask</th><th>Mid</th><th>OI</th><th>Vol</th></tr></thead>
+                <thead><tr><th>Strike</th><th>Bid</th><th>Ask</th><th>Last</th><th>Mid</th><th>OI</th><th>Vol</th></tr></thead>
                 <tbody>
                 {% for r in opt.puts %}
                   <tr>
                     <td>{{ '%.2f' % r.strike }}</td>
                     <td>{{ '' if r.bid is none else '%.2f' % r.bid }}</td>
                     <td>{{ '' if r.ask is none else '%.2f' % r.ask }}</td>
-                    <td>{{ '' if r.mid is none else '%.2f' % r.mid }}</td>
+                    <td>{{ '' if r.last is none else '%.2f' % r.last }}</td>
+                    <td>
+                      {% if r.mid is none %}
+                      {% else %}
+                        {{ '%.2f' % r.mid }}{% if r.mid_from == 'last' %}*{% endif %}
+                      {% endif %}
+                    </td>
                     <td>{{ r.openInterest }}</td>
                     <td>{{ r.volume }}</td>
                   </tr>
@@ -129,6 +141,7 @@
               </div>
             </div>
           </div>
+          <div class="small muted">* Mid 由 Last 近似</div>
         {% else %}
           <div class="muted small">查不到到期日或無選擇權資料。</div>
         {% endif %}
