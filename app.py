@@ -12,7 +12,7 @@ app = FastAPI(title="Stocks & Options Board")
 templates = Jinja2Templates(directory="templates")
 
 # ------- 基本設定 -------
-DEFAULT_TICKERS: List[str] = ["AAPL", "MSFT", "NVDA", "TSLA", "SPY"]
+DEFAULT_TICKERS: List[str] = ["AAPL", "MSFT", "NVDA", "TSLA", "SPY", "AMD", "AMZN", "PLTR"]
 QUOTES_TTL_SEC = 20
 OPTIONS_TTL_SEC = 45
 
@@ -22,7 +22,7 @@ options_cache: TTLCache = TTLCache(maxsize=256, ttl=OPTIONS_TTL_SEC)
 
 # ------- 小工具 -------
 def _now_iso() -> str:
-    # 以 UTC ISO 顯示，前端會直接顯示字串
+    # 顯示為 UTC ISO，前端直接呈現字串
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
 
 
@@ -51,7 +51,6 @@ def get_quote_one(symbol: str) -> Dict[str, Any]:
     }
     try:
         t = yf.Ticker(symbol)
-        # 先用 fast info
         fi = getattr(t, "fast_info", None)
         if fi and getattr(fi, "last_price", None) is not None:
             last = _to_float(fi.last_price)
@@ -66,13 +65,13 @@ def get_quote_one(symbol: str) -> Dict[str, Any]:
             df = t.history(period="1d", interval="1m")
             if not df.empty:
                 last = _to_float(df["Close"].iloc[-1])
-                prev_close = _to_float(t.history(period="5d")["Close"].iloc[-2]) if len(t.history(period="5d")) >= 2 else None
                 info["price"] = last
+                hist5 = t.history(period="5d")
+                prev_close = _to_float(hist5["Close"].iloc[-2]) if len(hist5) >= 2 else None
                 if last is not None and prev_close is not None:
                     info["change"] = round(last - prev_close, 2)
                     info["pct"] = round((last - prev_close) / prev_close * 100, 2) if prev_close else None
 
-        # 時間
         info["time"] = _now_iso()
     except Exception:
         # 保持空值，不讓整頁炸掉
@@ -91,9 +90,7 @@ def _pick_expiry(t: yf.Ticker, expiry: Optional[str]) -> Optional[str]:
     if not exps:
         return None
     if not expiry:
-        # 挑最近的到期日
-        return exps[0]
-    # 有指定就盡量用指定，找不到就回 None
+        return exps[0]  # 最近到期
     return expiry if expiry in exps else None
 
 
@@ -108,6 +105,7 @@ def get_options_slice(symbol: str, expiry: Optional[str]) -> Optional[Dict[str, 
         if not picked:
             return None
 
+        # Spot
         spot = None
         fi = getattr(t, "fast_info", None)
         if fi and getattr(fi, "last_price", None) is not None:
@@ -117,7 +115,7 @@ def get_options_slice(symbol: str, expiry: Optional[str]) -> Optional[Dict[str, 
             if not df.empty:
                 spot = _to_float(df["Close"].iloc[-1])
 
-        chain = t.option_chain(picked)  # calls, puts 為 DataFrame
+        chain = t.option_chain(picked)  # 回傳 calls / puts DataFrame
         calls_df: pd.DataFrame = getattr(chain, "calls", pd.DataFrame())
         puts_df: pd.DataFrame = getattr(chain, "puts", pd.DataFrame())
 
@@ -129,18 +127,28 @@ def get_options_slice(symbol: str, expiry: Optional[str]) -> Optional[Dict[str, 
             df2["dist"] = (df2["strike"] - spot).abs()
             df2 = df2.sort_values("dist")
             keep = df2.head(max(1, n_each_side * 2 + 1)).sort_values("strike")
+
             out = []
             for _, r in keep.iterrows():
                 bid = _to_float(r.get("bid"))
                 ask = _to_float(r.get("ask"))
+                last = _to_float(r.get("lastPrice"))  # Yahoo 提供
                 mid = None
+                mid_from = None
                 if bid is not None and ask is not None:
                     mid = round((bid + ask) / 2, 2)
+                    mid_from = "ba"
+                elif last is not None:
+                    mid = round(last, 2)
+                    mid_from = "last"
+
                 out.append({
                     "strike": _to_float(r.get("strike")),
                     "bid": None if bid is None else round(bid, 2),
                     "ask": None if ask is None else round(ask, 2),
+                    "last": None if last is None else round(last, 2),
                     "mid": mid,
+                    "mid_from": mid_from,  # 'ba' = bid/ask, 'last' = 由 last 近似
                     "openInterest": int(r.get("openInterest") or 0),
                     "volume": int(r.get("volume") or 0),
                 })
