@@ -21,29 +21,29 @@
     .small { font-size: 12px; }
     input[type=text]{ padding:6px 8px; width: 280px; }
     button{ padding:6px 10px; }
-  
-/* === mobile enhancements === */
-.scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch;}
-@media (max-width: 768px){
-  body{margin:12px;}
-  .container, .row{padding:0;}
-  table{font-size:14px;}
-  th,td{padding:6px 8px;}
-  input[type="text"], input[type="search"], select, button{width:100%; box-sizing:border-box; margin:6px 0; padding:10px 12px;}
-  .controls{display:grid; grid-template-columns:1fr; gap:8px;}
-  .muted.small{font-size:12px;}
-  .card{padding:10px;}
-}
-/* Optional: prevent long tickers/labels from breaking layout */
-td, th{word-break:keep-all; white-space:nowrap;}
-</style>
+
+    /* === Mobile enhancements === */
+    .scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+    @media (max-width: 768px){
+      body{margin:12px;}
+      .container, .row{padding:0;}
+      table{font-size:14px;}
+      th,td{padding:6px 8px;}
+      input[type="text"], input[type="search"], select, button{
+        width:100%; box-sizing:border-box; margin:6px 0; padding:10px 12px;
+      }
+      .muted.small{font-size:12px;}
+      .card{padding:10px;}
+    }
+    td, th{word-break:keep-all; white-space:nowrap;}
+  </style>
 </head>
 <body>
 <div class="wrap">
   <div class="row">
     <div class="card">
       <div class="title">股票價格</div>
-      <form method="get" class="small" style="margin:8px 0;" class="controls">
+      <form method="get" class="small" style="margin:8px 0;">
         追蹤清單（逗號分隔）：
         <input type="text" name="symbols" value="{{ ','.join(symbols) }}">
         <input type="hidden" name="opt" value="{{ opt.symbol if opt else '' }}">
@@ -51,7 +51,7 @@ td, th{word-break:keep-all; white-space:nowrap;}
         <button type="submit">套用</button>
       </form>
       <div class="scroll-x">
-<table>
+      <table>
         <thead>
           <tr><th>Symbol</th><th>Price</th><th>Δ</th><th>%</th><th>Time</th></tr>
         </thead>
@@ -68,7 +68,7 @@ td, th{word-break:keep-all; white-space:nowrap;}
         {% endfor %}
         </tbody>
       </table>
-</div>
+      </div>
       <div class="small muted">更新：{{ now }}</div>
     </div>
 
@@ -91,7 +91,7 @@ td, th{word-break:keep-all; white-space:nowrap;}
             <div style="flex:1; min-width:300px;">
               <div class="small" style="font-weight:700; margin-top:6px;">Calls</div>
               <div class="scroll-x">
-<table>
+              <table>
                 <thead><tr><th>Strike</th><th>Bid</th><th>Ask</th><th>Mid</th><th>OI</th><th>Vol</th></tr></thead>
                 <tbody>
                 {% for r in opt.calls %}
@@ -106,12 +106,12 @@ td, th{word-break:keep-all; white-space:nowrap;}
                 {% endfor %}
                 </tbody>
               </table>
-</div>
+              </div>
             </div>
             <div style="flex:1; min-width:300px;">
               <div class="small" style="font-weight:700; margin-top:6px;">Puts</div>
               <div class="scroll-x">
-<table>
+              <table>
                 <thead><tr><th>Strike</th><th>Bid</th><th>Ask</th><th>Mid</th><th>OI</th><th>Vol</th></tr></thead>
                 <tbody>
                 {% for r in opt.puts %}
@@ -126,7 +126,7 @@ td, th{word-break:keep-all; white-space:nowrap;}
                 {% endfor %}
                 </tbody>
               </table>
-</div>
+              </div>
             </div>
           </div>
         {% else %}
@@ -140,4 +140,3 @@ td, th{word-break:keep-all; white-space:nowrap;}
 </div>
 </body>
 </html>
-
