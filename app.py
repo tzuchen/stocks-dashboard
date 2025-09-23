@@ -22,7 +22,6 @@ options_cache: TTLCache = TTLCache(maxsize=256, ttl=OPTIONS_TTL_SEC)
 
 # ------- 小工具 -------
 def _now_iso() -> str:
-    # 顯示為 UTC ISO，前端直接呈現字串
     return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%SZ")
 
 
@@ -61,7 +60,6 @@ def get_quote_one(symbol: str) -> Dict[str, Any]:
                 info["pct"] = round((last - prev) / prev * 100, 2) if prev else None
             info["currency"] = getattr(fi, "currency", "") or ""
         else:
-            # 備援：抓 1d/1m
             df = t.history(period="1d", interval="1m")
             if not df.empty:
                 last = _to_float(df["Close"].iloc[-1])
@@ -74,14 +72,13 @@ def get_quote_one(symbol: str) -> Dict[str, Any]:
 
         info["time"] = _now_iso()
     except Exception:
-        # 保持空值，不讓整頁炸掉
         pass
 
     quote_cache[key] = info
     return info
 
 
-# ------- 選擇權（取鄰近 ATM 的小片段） -------
+# ------- 選擇權（鄰近 ATM 小片段） -------
 def _pick_expiry(t: yf.Ticker, expiry: Optional[str]) -> Optional[str]:
     try:
         exps = t.options or []
@@ -90,12 +87,13 @@ def _pick_expiry(t: yf.Ticker, expiry: Optional[str]) -> Optional[str]:
     if not exps:
         return None
     if not expiry:
-        return exps[0]  # 最近到期
+        return exps[0]
     return expiry if expiry in exps else None
 
 
 def get_options_slice(symbol: str, expiry: Optional[str]) -> Optional[Dict[str, Any]]:
-    key = f"opt:{symbol}:{expiry or ''}"
+    # 版本化 cache key，避免舊格式殘留
+    key = f"opt2:{symbol}:{expiry or ''}"
     if key in options_cache:
         return options_cache[key]
 
@@ -115,14 +113,13 @@ def get_options_slice(symbol: str, expiry: Optional[str]) -> Optional[Dict[str, 
             if not df.empty:
                 spot = _to_float(df["Close"].iloc[-1])
 
-        chain = t.option_chain(picked)  # 回傳 calls / puts DataFrame
+        chain = t.option_chain(picked)
         calls_df: pd.DataFrame = getattr(chain, "calls", pd.DataFrame())
         puts_df: pd.DataFrame = getattr(chain, "puts", pd.DataFrame())
 
         def _rows_near_atm(df: pd.DataFrame, n_each_side: int = 6):
             if df is None or df.empty or spot is None:
                 return []
-            # 取最接近的行，左右各 n_each_side
             df2 = df.copy()
             df2["dist"] = (df2["strike"] - spot).abs()
             df2 = df2.sort_values("dist")
@@ -132,7 +129,7 @@ def get_options_slice(symbol: str, expiry: Optional[str]) -> Optional[Dict[str, 
             for _, r in keep.iterrows():
                 bid = _to_float(r.get("bid"))
                 ask = _to_float(r.get("ask"))
-                last = _to_float(r.get("lastPrice"))  # Yahoo 提供
+                last = _to_float(r.get("lastPrice"))
                 mid = None
                 mid_from = None
                 if bid is not None and ask is not None:
@@ -142,16 +139,20 @@ def get_options_slice(symbol: str, expiry: Optional[str]) -> Optional[Dict[str, 
                     mid = round(last, 2)
                     mid_from = "last"
 
-                out.append({
+                row = {
                     "strike": _to_float(r.get("strike")),
                     "bid": None if bid is None else round(bid, 2),
                     "ask": None if ask is None else round(ask, 2),
                     "last": None if last is None else round(last, 2),
                     "mid": mid,
-                    "mid_from": mid_from,  # 'ba' = bid/ask, 'last' = 由 last 近似
+                    "mid_from": mid_from,
                     "openInterest": int(r.get("openInterest") or 0),
                     "volume": int(r.get("volume") or 0),
-                })
+                }
+                # 保證鍵存在（即使為 None）
+                for k in ("bid", "ask", "last", "mid", "mid_from"):
+                    row.setdefault(k, None)
+                out.append(row)
             return out
 
         calls = _rows_near_atm(calls_df)
@@ -177,24 +178,16 @@ def health():
     return JSONResponse({"status": "ok", "now": _now_iso()})
 
 
-# ------- 首頁（固定渲染 index.html） -------
+# ------- 首頁 -------
 @app.get("/", response_class=HTMLResponse)
 def dashboard(
     request: Request,
-    symbols: Optional[str] = Query(None, description="逗號分隔的標的列表，如 TSLA,AAPL,SPY"),
-    opt: Optional[str] = Query(None, description="要查看選擇權的標的，如 TSLA"),
-    expiry: Optional[str] = Query(None, description="到期日 YYYY-MM-DD，留空自動挑最近"),
+    symbols: Optional[str] = Query(None, description="逗號分隔，如 TSLA,AAPL,SPY"),
+    opt: Optional[str] = Query(None, description="選擇權標的，如 TSLA"),
+    expiry: Optional[str] = Query(None, description="到期日 YYYY-MM-DD；留空自動挑最近"),
 ):
-    # symbols 處理
-    if symbols:
-        syms = [s.strip().upper() for s in symbols.split(",") if s.strip()]
-    else:
-        syms = DEFAULT_TICKERS
-
-    # 報價
+    syms = [s.strip().upper() for s in symbols.split(",")] if symbols else DEFAULT_TICKERS
     quotes = [get_quote_one(s) for s in syms]
-
-    # 選擇權
     opt_block = get_options_slice(opt, expiry) if opt else None
 
     ctx = {
