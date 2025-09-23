@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <title>股票＋選擇權看板</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- 每 20 秒自動重整 -->
   <meta http-equiv="refresh" content="20">
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans CJK TC", "PingFang TC", sans-serif; margin: 18px; }
@@ -21,8 +20,6 @@
     .small { font-size: 12px; }
     input[type=text]{ padding:6px 8px; width: 280px; }
     button{ padding:6px 10px; }
-
-    /* === Mobile enhancements === */
     .scroll-x{overflow-x:auto;-webkit-overflow-scrolling:touch;}
     @media (max-width: 768px){
       body{margin:12px;}
@@ -79,7 +76,6 @@
         <input type="text" name="opt" value="{{ opt.symbol if opt else '' }}" placeholder="例如 TSLA">
         到期日（可留空）：
         <input type="text" name="expiry" value="{{ expiry }}" placeholder="YYYY-MM-DD">
-        <!-- 沿用上方 symbols -->
         <input type="hidden" name="symbols" value="{{ ','.join(symbols) }}">
         <button type="submit">查看</button>
       </form>
@@ -95,17 +91,17 @@
                 <thead><tr><th>Strike</th><th>Bid</th><th>Ask</th><th>Last</th><th>Mid</th><th>OI</th><th>Vol</th></tr></thead>
                 <tbody>
                 {% for r in opt.calls %}
+                  {% set _bid = r.bid|default(None) %}
+                  {% set _ask = r.ask|default(None) %}
+                  {% set _last = r.last|default(None) %}
+                  {% set _mid = r.mid|default(None) %}
+                  {% set _src = r.mid_from|default(None) %}
                   <tr>
                     <td>{{ '%.2f' % r.strike }}</td>
-                    <td>{{ '' if r.bid is none else '%.2f' % r.bid }}</td>
-                    <td>{{ '' if r.ask is none else '%.2f' % r.ask }}</td>
-                    <td>{{ '' if r.last is none else '%.2f' % r.last }}</td>
-                    <td>
-                      {% if r.mid is none %}
-                      {% else %}
-                        {{ '%.2f' % r.mid }}{% if r.mid_from == 'last' %}*{% endif %}
-                      {% endif %}
-                    </td>
+                    <td>{{ '' if _bid is none else '%.2f' % _bid }}</td>
+                    <td>{{ '' if _ask is none else '%.2f' % _ask }}</td>
+                    <td>{{ '' if _last is none else '%.2f' % _last }}</td>
+                    <td>{% if _mid is none %}{% else %}{{ '%.2f' % _mid }}{% if _src == 'last' %}*{% endif %}{% endif %}</td>
                     <td>{{ r.openInterest }}</td>
                     <td>{{ r.volume }}</td>
                   </tr>
@@ -121,17 +117,17 @@
                 <thead><tr><th>Strike</th><th>Bid</th><th>Ask</th><th>Last</th><th>Mid</th><th>OI</th><th>Vol</th></tr></thead>
                 <tbody>
                 {% for r in opt.puts %}
+                  {% set _bid = r.bid|default(None) %}
+                  {% set _ask = r.ask|default(None) %}
+                  {% set _last = r.last|default(None) %}
+                  {% set _mid = r.mid|default(None) %}
+                  {% set _src = r.mid_from|default(None) %}
                   <tr>
                     <td>{{ '%.2f' % r.strike }}</td>
-                    <td>{{ '' if r.bid is none else '%.2f' % r.bid }}</td>
-                    <td>{{ '' if r.ask is none else '%.2f' % r.ask }}</td>
-                    <td>{{ '' if r.last is none else '%.2f' % r.last }}</td>
-                    <td>
-                      {% if r.mid is none %}
-                      {% else %}
-                        {{ '%.2f' % r.mid }}{% if r.mid_from == 'last' %}*{% endif %}
-                      {% endif %}
-                    </td>
+                    <td>{{ '' if _bid is none else '%.2f' % _bid }}</td>
+                    <td>{{ '' if _ask is none else '%.2f' % _ask }}</td>
+                    <td>{{ '' if _last is none else '%.2f' % _last }}</td>
+                    <td>{% if _mid is none %}{% else %}{{ '%.2f' % _mid }}{% if _src == 'last' %}*{% endif %}{% endif %}</td>
                     <td>{{ r.openInterest }}</td>
                     <td>{{ r.volume }}</td>
                   </tr>
