@@ -61,11 +61,31 @@ jobs:
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "Patch URL: $url"
 
-      - name: Download patch
+      - name: Download patch (robust)
+        shell: bash
         run: |
-          curl -fsSL "${{ steps.extract.outputs.url }}" -o change.patch
+          set -euo pipefail
+          URL="${{ steps.extract.outputs.url }}"
+          echo "Will fetch: $URL"
+          # 先試 HEAD 看 DNS/可達性
+          for i in {1..3}; do
+            if curl -I -LfsS "$URL" >/dev/null; then
+              break
+            fi
+            echo "HEAD attempt $i failed; retrying..."
+            sleep 2
+          done
+          # 下載（含重試）
+          for i in {1..5}; do
+            if curl -A "github-actions" -H "Accept: text/plain" -LfsS "$URL" -o change.patch; then
+              break
+            fi
+            echo "Download attempt $i failed; retrying..."
+            sleep 2
+          done
+          test -s change.patch || { echo "Download failed or empty file"; exit 1; }
           echo "Downloaded patch size: $(wc -c < change.patch) bytes"
-          head -n 20 change.patch || true
+          head -n 20 change.patch || true    
 
       - name: Dry-run patch (see if it applies cleanly)
         shell: bash
