@@ -1,0 +1,12 @@
+name: Apply a patch
+description: Paste a patch URL to auto-create a PR
+title: "[patch] brief description"
+body:
+  - type: textarea
+    id: patch_url
+    attributes:
+      label: Patch URL
+      description: "Provide a direct URL to a .patch (or unified diff) file."
+      placeholder: "https://example.com/change.patch"
+    validations:
+      required: true
