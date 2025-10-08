@@ -1,0 +1,30 @@
+From 1111111111111111111111111111111111111111 Mon Sep 17 00:00:00 2001
+From: ChatGPT Bot <bot@example.com>
+Date: Wed, 8 Oct 2025 03:30:00 +0800
+Subject: [PATCH] Bootstrap CI smoke test and mobile.css scaffold
+
+---
+ .gitignore         | 3 +++
+ README-dev.md      | 4 ++++
+ static/mobile.css  | 4 ++++
+ tests/test_smoke.py | 4 ++++
+ 4 files changed, 15 insertions(+)
+ create mode 100644 .gitignore
+ create mode 100644 README-dev.md
+ create mode 100644 static/mobile.css
+ create mode 100644 tests/test_smoke.py
+
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+index 0000000..e69de29
+diff --git a/README-dev.md b/README-dev.md
+new file mode 100644
+index 0000000..e69de29
+diff --git a/static/mobile.css b/static/mobile.css
+new file mode 100644
+index 0000000..e69de29
+diff --git a/tests/test_smoke.py b/tests/test_smoke.py
+new file mode 100644
+index 0000000..e69de29
+-- 
+2.39.3
