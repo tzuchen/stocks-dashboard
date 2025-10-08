@@ -1,0 +1,53 @@
+From 2222222222222222222222222222222222222222 Mon Sep 17 00:00:00 2001
+From: ChatGPT Bot <bot@example.com>
+Date: Wed, 8 Oct 2025 05:10:00 +0800
+Subject: [PATCH] Wire mobile.css into templates and add /healthz route
+
+---
+ app.py                 | 18 ++++++++++++++++++
+ templates/base.html    | 11 +++++++++++
+ 2 files changed, 29 insertions(+)
+
+diff --git a/app.py b/app.py
+index 0000000..1111111 100644
+--- /dev/null
++++ b/app.py
+@@ -0,0 +1,18 @@
++try:
++    from flask import Flask, render_template, jsonify
++except Exception:
++    # If project structure differs, this file will be ignored by tests.
++    raise
++
++app = Flask(__name__)
++
++@app.route("/healthz")
++def healthz():
++    return jsonify(status="ok"), 200
++
++@app.route("/")
++def index():
++    # If you already have your own index route, keep it; this one is just a safe fallback.
++    return render_template("base.html", title="Stocks Dashboard")
++
++if __name__ == "__main__":
++    app.run(host="0.0.0.0", port=5000, debug=True)
+diff --git a/templates/base.html b/templates/base.html
+index 0000000..2222222 100644
+--- /dev/null
++++ b/templates/base.html
+@@ -0,0 +1,11 @@
++<!doctype html>
++<html lang="en">
++  <head>
++    <meta charset="utf-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1">
++    <title>{{ title or "Stocks Dashboard" }}</title>
++    <link rel="stylesheet" href="{{ url_for('static', filename='mobile.css') }}">
++  </head>
++  <body class="container">
++    <h1>{{ title or "Stocks Dashboard" }}</h1>
++  </body>
++</html>
+-- 
+2.39.3
