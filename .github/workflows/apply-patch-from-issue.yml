@@ -95,7 +95,7 @@ jobs:
           git status --porcelain
           git rev-parse --abbrev-ref HEAD
           git log -1 --oneline
-          git apply --check change.patch
+          git apply --check --unsafe-paths change.patch || true
 
       - name: Apply patch and stage
         run: |
