@@ -22,12 +22,12 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.issue.title, '[patch]')
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout base branch
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: main
-
+          ref: ${{ github.event.repository.default_branch }}
+      
       - name: Determine base branch
         id: base
         run: |
@@ -67,7 +67,8 @@ jobs:
 
       - name: Create working branch
         run: |
-          git checkout "${{ steps.base.outputs.base }}"
+          git fetch origin "${{ steps.base.outputs.base }}:${{ steps.base.outputs.base }}" || true
+          git switch "${{ steps.base.outputs.base }}"
           BRANCH="gpt/auto-patch-${{ github.run_id }}"
           git checkout -b "$BRANCH"
           echo "BRANCH=$BRANCH" >> $GITHUB_ENV
