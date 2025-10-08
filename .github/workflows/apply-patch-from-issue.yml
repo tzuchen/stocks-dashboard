@@ -88,10 +88,10 @@ jobs:
           test -s change.patch || { echo "Download failed or empty file"; exit 1; }
           echo "Downloaded patch size: $(wc -c < change.patch) bytes"
           head -n 20 change.patch || true
-
+          
      - name: Dry-run patch (non-blocking)
-          shell: bash
-          run: |
+       shell: bash
+       run: |
           set +e   # 不要因為非0退出
           git status --porcelain || true
           git rev-parse --abbrev-ref HEAD || true
@@ -101,8 +101,8 @@ jobs:
           exit 0
 
      - name: Apply patch and stage
-          shell: bash
-          run: |
+       shell: bash
+       run: |
           set -e
           git apply --whitespace=fix --unsafe-paths change.patch
           git add -A
