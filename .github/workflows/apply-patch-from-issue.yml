@@ -2,16 +2,16 @@ name: Apply patch from issue or manual trigger
 
 on:
   issues:
-    types: [opened]
+    types: [opened, edited]
   workflow_dispatch:
     inputs:
       patch_url:
         description: "URL to .patch or unified diff"
         required: true
       target_branch:
-        description: "Base branch to patch onto"
+        description: "Base branch"
         required: false
-        default: "main"
+        default: ""
 
 permissions:
   contents: write
@@ -19,71 +19,86 @@ permissions:
 
 jobs:
   apply:
+    # 僅當是手動觸發或 Issue 標題含 [patch] 才跑
     if: github.event_name == 'workflow_dispatch' || contains(github.event.issue.title, '[patch]')
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout base branch
+      - name: Checkout default branch
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # 用 repo 的預設分支，比硬寫 main 更穩
           ref: ${{ github.event.repository.default_branch }}
-      
+
+      - name: Mark workspace as safe (avoid git 128 on some runners)
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
       - name: Determine base branch
         id: base
+        shell: bash
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "base=${{ github.event.inputs.target_branch }}" >> $GITHUB_OUTPUT
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.target_branch }}" ]; then
+            echo "branch=${{ github.event.inputs.target_branch }}" >> "$GITHUB_OUTPUT"
           else
-            echo "base=main" >> $GITHUB_OUTPUT
+            echo "branch=${{ github.event.repository.default_branch }}" >> "$GITHUB_OUTPUT"
           fi
+          echo "Using base branch: $(cat $GITHUB_OUTPUT)"
 
       - name: Extract patch URL
         id: extract
+        shell: bash
         run: |
           if [ "${{ github.event_name }}" = "issues" ]; then
             body="${{ github.event.issue.body }}"
-            url=$(echo "$body" | grep -Eo 'https?://[^ ]+\.patch' | head -n1)
-            if [ -z "$url" ]; then
-              url=$(echo "$body" | grep -Eo 'https?://[^ )\n]+' | head -n1)
-            fi
+            url=$(echo "$body" | grep -Eo 'https?://[^ )\n]+' | head -n1)
           else
             url="${{ github.event.inputs.patch_url }}"
           fi
           if [ -z "$url" ]; then
-            echo "No patch URL found."; exit 1
+            echo "No patch URL found in issue body or inputs." >&2
+            exit 1
           fi
-          echo "url=$url" >> $GITHUB_OUTPUT
-          echo "Using patch URL: $url"
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Patch URL: $url"
 
       - name: Download patch
         run: |
-          curl -L "${{ steps.extract.outputs.url }}" -o change.patch
-          test -s change.patch
+          curl -fsSL "${{ steps.extract.outputs.url }}" -o change.patch
+          echo "Downloaded patch size: $(wc -c < change.patch) bytes"
+          head -n 20 change.patch || true
 
-      - name: Configure git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Create working branch
-        run: |
-          git fetch origin "${{ steps.base.outputs.base }}:${{ steps.base.outputs.base }}" || true
-          git switch "${{ steps.base.outputs.base }}"
-          BRANCH="gpt/auto-patch-${{ github.run_id }}"
-          git checkout -b "$BRANCH"
-          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
-
-      - name: Apply patch
+      - name: Dry-run patch (see if it applies cleanly)
+        shell: bash
         run: |
           set -e
-          git apply --index --whitespace=fix change.patch
-          git commit -m "Apply patch from ${{ steps.extract.outputs.url }}"
+          git status --porcelain
+          git rev-parse --abbrev-ref HEAD
+          # 顯示最近一次提交，協助除錯
+          git log -1 --oneline
+          # 先 dry-run
+          if git apply --check change.patch; then
+            echo "Dry-run OK"
+          else
+            echo "Dry-run failed — printing context"
+            git apply --numstat change.patch || true
+            exit 1
+          fi
 
+      - name: Apply patch and stage
+        run: |
+          git apply --whitespace=fix change.patch
+          git status
+          git diff --staged || true
+          git add -A
+
+      # 交給 create-pull-request 建分支與 commit（避免手動 checkout -b）
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
-          branch: ${{ env.BRANCH }}
-          base: ${{ steps.base.outputs.base }}
+          base: ${{ steps.base.outputs.branch }}
+          branch: gpt/auto-patch-${{ github.run_id }}
           title: "Auto PR: apply patch (${{ github.run_id }})"
           commit-message: "Apply patch from ${{ steps.extract.outputs.url }}"
-          body: "This PR was generated by the apply-patch-from-issue workflow."
+          body: |
+            Generated by workflow.
+            Source patch: ${{ steps.extract.outputs.url }}
