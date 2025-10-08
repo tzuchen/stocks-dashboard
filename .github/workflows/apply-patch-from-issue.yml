@@ -89,19 +89,24 @@ jobs:
           echo "Downloaded patch size: $(wc -c < change.patch) bytes"
           head -n 20 change.patch || true
 
-      - name: Dry-run patch
-        shell: bash
-        run: |
-          git status --porcelain
-          git rev-parse --abbrev-ref HEAD
-          git log -1 --oneline
-          git apply --check --unsafe-paths change.patch || true
+     - name: Dry-run patch (non-blocking)
+          shell: bash
+          run: |
+          set +e   # 不要因為非0退出
+          git status --porcelain || true
+          git rev-parse --abbrev-ref HEAD || true
+          git log -1 --oneline || true
+          git apply --check --unsafe-paths change.patch
+          echo "[dry-run] exit=$?"  # 只記錄，不阻斷
+          exit 0
 
-      - name: Apply patch and stage
-        run: |
-          git apply --whitespace=fix change.patch
+     - name: Apply patch and stage
+          shell: bash
+          run: |
+          set -e
+          git apply --whitespace=fix --unsafe-paths change.patch
           git add -A
-
+      
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
